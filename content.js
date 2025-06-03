@@ -144,18 +144,28 @@ function createFloatingButton() {
   }
   
   function extractAndSendContent() {
+    console.log('🔍 [Dify Extension] Starting content extraction');
     button.innerHTML = '⏳';
     button.style.background = '#f59e0b';
     
     const pageData = extractPageContent();
+    console.log('🔍 [Dify Extension] Extracted content:', {
+      title: pageData.title,
+      contentLength: pageData.contentLength,
+      extractMethod: pageData.extractMethod
+    });
     
     showTooltip(`${pageData.extractMethod}\n文字数: ${pageData.contentLength}文字`);
     
-    chrome.runtime.sendMessage({ action: 'openSidePanel' }, () => {
+    chrome.runtime.sendMessage({ action: 'openSidePanel' }, (response) => {
+      console.log('🔍 [Dify Extension] Side panel open response:', response);
       setTimeout(() => {
+        console.log('🔍 [Dify Extension] Sending content to side panel');
         chrome.runtime.sendMessage({ 
           action: 'sendContentToSidePanel', 
           data: pageData 
+        }, (response) => {
+          console.log('🔍 [Dify Extension] Content send response:', response);
         });
       }, 500);
     });
@@ -167,22 +177,24 @@ function createFloatingButton() {
   }
   
   button.addEventListener('mousedown', (e) => {
+    console.log('🔍 [Dify Extension] Mousedown event triggered');
     mouseDownTime = Date.now();
     isLongPress = false;
+    isDragging = false;
     
-    longPressTimer = setTimeout(() => {
-      if (!isDragging) {
-        isLongPress = true;
-        extractAndSendContent();
-      }
-    }, 800);
-    
-    isDragging = true;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
     const pos = getButtonPosition();
     buttonStartX = pos.x;
     buttonStartY = pos.y;
+    
+    longPressTimer = setTimeout(() => {
+      console.log('🔍 [Dify Extension] Long press timer fired');
+      if (!isDragging) {
+        isLongPress = true;
+        extractAndSendContent();
+      }
+    }, 800);
     
     button.style.cursor = 'grabbing';
     button.style.transition = 'none';
@@ -190,32 +202,48 @@ function createFloatingButton() {
   });
   
   document.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
+    if (mouseDownTime === 0) return;
     
     const deltaX = e.clientX - dragStartX;
     const deltaY = e.clientY - dragStartY;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     
-    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+    if (distance > 5 && !isDragging) {
+      console.log('🔍 [Dify Extension] Starting drag, canceling long press');
+      isDragging = true;
       clearTimeout(longPressTimer);
+    }
+    
+    if (isDragging) {
       setButtonPosition(buttonStartX + deltaX, buttonStartY + deltaY);
     }
   });
   
   document.addEventListener('mouseup', (e) => {
-    if (!isDragging) return;
+    if (mouseDownTime === 0) return;
+    
+    console.log('🔍 [Dify Extension] Mouseup event triggered', {
+      isDragging,
+      isLongPress,
+      pressDuration: Date.now() - mouseDownTime
+    });
     
     clearTimeout(longPressTimer);
-    isDragging = false;
-    button.style.cursor = 'move';
-    button.style.transition = 'transform 0.2s ease';
     
     const deltaX = Math.abs(e.clientX - dragStartX);
     const deltaY = Math.abs(e.clientY - dragStartY);
     const pressDuration = Date.now() - mouseDownTime;
     
-    if (deltaX < 5 && deltaY < 5 && pressDuration < 800 && !isLongPress) {
+    if (!isDragging && !isLongPress && deltaX < 5 && deltaY < 5 && pressDuration < 800) {
+      console.log('🔍 [Dify Extension] Short click detected, opening side panel');
       chrome.runtime.sendMessage({ action: 'openSidePanel' });
     }
+    
+    isDragging = false;
+    isLongPress = false;
+    mouseDownTime = 0;
+    button.style.cursor = 'move';
+    button.style.transition = 'transform 0.2s ease';
   });
   
   button.addEventListener('mouseenter', () => {
@@ -234,7 +262,24 @@ function createFloatingButton() {
 }
 
 chrome.storage.sync.get(['isEnabled'], (result) => {
-  if (result.isEnabled) {
+  console.log('🔍 [Dify Extension] Storage check result:', result);
+  if (result.isEnabled !== false) {
+    console.log('🔍 [Dify Extension] Creating floating button');
     createFloatingButton();
+  } else {
+    console.log('🔍 [Dify Extension] Extension is disabled, not creating button');
+  }
+});
+
+window.addEventListener('load', () => {
+  console.log('🔍 [Dify Extension] Page loaded, checking for button');
+  const existingButton = document.getElementById('dify-floating-button');
+  if (!existingButton) {
+    console.log('🔍 [Dify Extension] Button not found, recreating');
+    chrome.storage.sync.get(['isEnabled'], (result) => {
+      if (result.isEnabled !== false) {
+        createFloatingButton();
+      }
+    });
   }
 });

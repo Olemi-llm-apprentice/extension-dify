@@ -29,7 +29,9 @@ class SidePanel {
   
   setupMessageListener() {
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      console.log('🔍 [Dify Extension] Side panel received message:', request.action, request);
       if (request.action === 'receiveExtractedContent') {
+        console.log('🔍 [Dify Extension] Handling extracted content in side panel');
         this.handleExtractedContent(request.data);
       }
     });

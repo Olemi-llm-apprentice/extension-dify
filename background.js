@@ -12,15 +12,21 @@ chrome.action.onClicked.addListener((tab) => {
 });
 
 chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+  console.log('🔍 [Dify Extension] Background received message:', request.action, request);
+  
   if (request.action === 'openSidePanel') {
+    console.log('🔍 [Dify Extension] Opening side panel for tab:', sender.tab?.id);
     chrome.sidePanel.open({ tabId: sender.tab.id });
   } else if (request.action === 'sendContentToSidePanel') {
     try {
+      console.log('🔍 [Dify Extension] Processing sendContentToSidePanel request');
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tabs[0]) {
+        console.log('🔍 [Dify Extension] Opening side panel and sending content');
         await chrome.sidePanel.open({ tabId: tabs[0].id });
         
         setTimeout(() => {
+          console.log('🔍 [Dify Extension] Forwarding content to side panel');
           chrome.runtime.sendMessage({
             action: 'receiveExtractedContent',
             data: request.data

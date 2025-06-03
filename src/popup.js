@@ -101,13 +101,24 @@ class Popup {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
       if (!tab.id) {
+        console.error('No active tab found');
         return;
       }
       
+      console.log('🔍 [Dify Extension] Extracting content from tab:', tab.id);
       const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractContent' });
       
+      console.log('🔍 [Dify Extension] Content extraction response:', response);
+      
       if (response && response.content) {
+        console.log('🔍 [Dify Extension] Content extracted, sending to side panel');
+        chrome.runtime.sendMessage({ 
+          action: 'sendContentToSidePanel', 
+          data: response 
+        });
         await this.openSidePanel();
+      } else {
+        console.error('No content extracted from page');
       }
       
     } catch (error) {
