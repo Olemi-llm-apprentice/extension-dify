@@ -405,14 +405,26 @@ function createFloatingButton() {
   document.body.appendChild(button);
 }
 
-chrome.storage.sync.get(['isEnabled'], (result) => {
+chrome.storage.sync.get(['isEnabled', 'blacklist'], (result) => {
   console.log('🔍 [Dify Extension] Storage check result:', result);
-  if (result.isEnabled !== false) {
-    console.log('🔍 [Dify Extension] Creating floating button');
-    createFloatingButton();
-  } else {
+  
+  // 拡張機能が無効な場合はボタンを作成しない
+  if (result.isEnabled === false) {
     console.log('🔍 [Dify Extension] Extension is disabled, not creating button');
+    return;
   }
+  
+  // ブラックリストをチェック
+  const hostname = window.location.hostname;
+  const blacklist = result.blacklist || [];
+  
+  if (blacklist.includes(hostname)) {
+    console.log('🔍 [Dify Extension] Site is blacklisted, not creating floating button:', hostname);
+    return;
+  }
+  
+  console.log('🔍 [Dify Extension] Creating floating button');
+  createFloatingButton();
 });
 
 window.addEventListener('load', () => {
@@ -420,10 +432,22 @@ window.addEventListener('load', () => {
   const existingButton = document.getElementById('dify-floating-button');
   if (!existingButton) {
     console.log('🔍 [Dify Extension] Button not found, recreating');
-    chrome.storage.sync.get(['isEnabled'], (result) => {
-      if (result.isEnabled !== false) {
-        createFloatingButton();
+    chrome.storage.sync.get(['isEnabled', 'blacklist'], (result) => {
+      // 拡張機能が無効な場合はボタンを作成しない
+      if (result.isEnabled === false) {
+        return;
       }
+      
+      // ブラックリストをチェック
+      const hostname = window.location.hostname;
+      const blacklist = result.blacklist || [];
+      
+      if (blacklist.includes(hostname)) {
+        console.log('🔍 [Dify Extension] Site is blacklisted, not recreating floating button:', hostname);
+        return;
+      }
+      
+      createFloatingButton();
     });
   }
 });

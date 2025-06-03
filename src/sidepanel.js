@@ -109,6 +109,13 @@ class SidePanel {
   
   async autoExtractPageContent() {
     try {
+      // 自動抽出設定をチェック
+      const { autoExtractEnabled } = await chrome.storage.sync.get(['autoExtractEnabled']);
+      if (autoExtractEnabled === false) {
+        console.log('🔍 [Dify Extension] Auto extraction disabled, skipping initial extraction');
+        return;
+      }
+      
       console.log('🔍 [Dify Extension] Auto extracting page content');
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       

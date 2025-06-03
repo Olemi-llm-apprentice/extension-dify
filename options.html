@@ -54,7 +54,7 @@
           
           <div id="blacklist" class="tab-content">
             <p class="tab-description">
-              指定したサイトでは拡張機能を無効にします。
+              指定したサイトではフローティングボタン（💬）を表示しません。サイドパネルやポップアップからは引き続き利用可能です。
             </p>
             <div class="site-input">
               <input type="text" id="blacklistInput" placeholder="example.com" />
@@ -68,10 +68,14 @@
           <h2>コンテンツ抽出設定</h2>
           <div class="form-group">
             <label class="checkbox-label">
-              <input type="checkbox" id="autoExtract" />
+              <input type="checkbox" id="autoExtractEnabled" />
               <span class="checkmark"></span>
-              ページ読み込み時に自動でコンテンツを抽出
+              自動コンテンツ抽出を有効にする
             </label>
+            <p class="help-text">
+              サイドパネルを開いた時や、ページ遷移・タブ切り替え時（2.5秒後）に自動でコンテンツを抽出します。<br>
+              無効にすると手動更新ボタン（🔄）のみでコンテンツを取得できます。
+            </p>
           </div>
           
           <div class="form-group">
@@ -79,6 +83,7 @@
             <textarea id="extractSelectors" rows="4" placeholder="article, .content, #main-content"></textarea>
             <p class="help-text">
               <strong>デフォルト:</strong> ページのbody全体から不要要素（広告、ナビ、フッター等）を除外して抽出<br>
+              <strong>YouTube:</strong> 動画ページでは字幕データを優先的に抽出<br>
               <strong>カスタム:</strong> カンマ区切りでCSSセレクタを指定すると、指定要素のみを抽出します<br>
               例: <code>article, .post-content, #main</code>
             </p>

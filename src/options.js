@@ -2,7 +2,7 @@ class OptionsPage {
   constructor() {
     this.difyAppUrl = document.getElementById('difyAppUrl');
     this.isEnabled = document.getElementById('isEnabled');
-    this.autoExtract = document.getElementById('autoExtract');
+    this.autoExtractEnabled = document.getElementById('autoExtractEnabled');
     this.extractSelectors = document.getElementById('extractSelectors');
     this.whitelistInput = document.getElementById('whitelistInput');
     this.blacklistInput = document.getElementById('blacklistInput');
@@ -58,7 +58,7 @@ class OptionsPage {
       const settings = await chrome.storage.sync.get([
         'difyAppUrl',
         'isEnabled',
-        'autoExtract',
+        'autoExtractEnabled',
         'extractSelectors',
         'whitelist',
         'blacklist'
@@ -66,7 +66,7 @@ class OptionsPage {
       
       this.difyAppUrl.value = settings.difyAppUrl || '';
       this.isEnabled.checked = settings.isEnabled !== false;
-      this.autoExtract.checked = settings.autoExtract || false;
+      this.autoExtractEnabled.checked = settings.autoExtractEnabled !== false;
       this.extractSelectors.value = settings.extractSelectors || '';
       this.whitelist = settings.whitelist || [];
       this.blacklist = settings.blacklist || [];
@@ -92,7 +92,7 @@ class OptionsPage {
       const settings = {
         difyAppUrl: url,
         isEnabled: this.isEnabled.checked,
-        autoExtract: this.autoExtract.checked,
+        autoExtractEnabled: this.autoExtractEnabled.checked,
         extractSelectors: this.extractSelectors.value.trim(),
         whitelist: this.whitelist,
         blacklist: this.blacklist
@@ -117,7 +117,7 @@ class OptionsPage {
       
       this.difyAppUrl.value = '';
       this.isEnabled.checked = true;
-      this.autoExtract.checked = false;
+      this.autoExtractEnabled.checked = true;
       this.extractSelectors.value = '';
       this.whitelist = [];
       this.blacklist = [];

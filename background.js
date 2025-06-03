@@ -4,7 +4,8 @@ chrome.runtime.onInstalled.addListener(() => {
     difyAppUrl: '',
     isEnabled: true,
     whitelist: [],
-    blacklist: []
+    blacklist: [],
+    autoExtractEnabled: true // 自動抽出機能の設定を追加
   });
 });
 
@@ -113,8 +114,14 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     
     // chrome:// ページやエクステンションページは除外
     if (!tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
-      console.log('🔍 [Dify Extension] Starting auto extraction due to tab switch');
-      handleNavigationWithDebounce(activeInfo.tabId);
+      // 自動抽出設定をチェック
+      const { autoExtractEnabled } = await chrome.storage.sync.get(['autoExtractEnabled']);
+      if (autoExtractEnabled !== false) {
+        console.log('🔍 [Dify Extension] Starting auto extraction due to tab switch');
+        handleNavigationWithDebounce(activeInfo.tabId);
+      } else {
+        console.log('🔍 [Dify Extension] Auto extraction disabled, skipping');
+      }
     } else {
       console.log('🔍 [Dify Extension] Skipping auto extraction for system page');
     }
@@ -145,8 +152,14 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         if (activeTab && activeTab.id === tabId) {
           // URL変更検知
           if (tab.url !== lastExtractedUrl) {
-            console.log('🔍 [Dify Extension] URL changed from', lastExtractedUrl, 'to', tab.url, '- starting auto extraction');
-            handleNavigationWithDebounce(tabId);
+            // 自動抽出設定をチェック
+            const { autoExtractEnabled } = await chrome.storage.sync.get(['autoExtractEnabled']);
+            if (autoExtractEnabled !== false) {
+              console.log('🔍 [Dify Extension] URL changed from', lastExtractedUrl, 'to', tab.url, '- starting auto extraction');
+              handleNavigationWithDebounce(tabId);
+            } else {
+              console.log('🔍 [Dify Extension] Auto extraction disabled, skipping');
+            }
           } else {
             console.log('🔍 [Dify Extension] Same URL, skipping auto extraction');
           }
@@ -210,20 +223,14 @@ async function checkSitePermissions(url) {
     return;
   }
 
-  const { whitelist, blacklist, isEnabled } = await chrome.storage.sync.get(['whitelist', 'blacklist', 'isEnabled']);
+  // 拡張機能全体の有効性をチェック
+  const { isEnabled } = await chrome.storage.sync.get(['isEnabled']);
   
   if (!isEnabled) {
+    chrome.action.disable();
     return;
   }
 
-  const hostname = new URL(url).hostname;
-  
-  const isWhitelisted = whitelist.length === 0 || whitelist.includes(hostname);
-  const isBlacklisted = blacklist.includes(hostname);
-  
-  if (isWhitelisted && !isBlacklisted) {
-    chrome.action.enable();
-  } else {
-    chrome.action.disable();
-  }
+  // 拡張機能が有効な場合は常にアクション有効
+  chrome.action.enable();
 }
