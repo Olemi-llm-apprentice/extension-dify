@@ -1,0 +1,84 @@
+# Chrome Extension Development
+# パッケージ化されたファイル
+*.zip
+*.crx
+*.pem
+extension.crx
+extension.pem
+
+# Node.js dependencies (もしpackage.jsonを使用する場合)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Development tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Development build files
+dist/
+build/
+temp/
+tmp/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Testing
+coverage/
+.nyc_output/
+
+# Chrome extension specific
+# 開発時の一時ファイル
+console.log
+debug.log
+*.tmp
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Development notes (個人的なメモファイル)
+TODO.txt
+NOTES.txt
+notes.md
+memo.md
+debug.md
+
+# IDE specific files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+
+# Web store assets (アップロード用のアセットは別途管理)
+web-store/
+store-assets/
+screenshots/
+promo/
+
+# Source maps (プロダクションでは不要)
+*.map
