@@ -49,3 +49,26 @@ DifyのChrome拡張機能のリポジトリです。Difyでデプロイしたア
 - Storage uses chrome.storage.sync for cross-device sync
 - Content script handles page content extraction
 - Background script manages extension state and permissions
+
+## Documentation Update Rules
+
+**IMPORTANT: Always update documentation when making changes**
+
+After implementing any feature additions, bug fixes, or operational changes:
+
+1. **Update TASKS.md**
+   - Add completed tasks to the "完了したタスク" section
+   - Update "現在の動作フロー" if operational flow changes
+   - Add new items to "今後の機能予定" if applicable
+
+2. **Update README.md**
+   - Modify usage instructions if user operations change
+   - Update feature descriptions for new functionality
+   - Adjust technical specifications if architecture changes
+   - Update examples and code samples to reflect current behavior
+
+3. **Commit with documentation**
+   - Include both code changes and documentation updates in the same commit
+   - Ensure documentation accurately reflects the current state of the application
+
+This rule ensures that documentation stays synchronized with the actual implementation and provides accurate information to users and future developers.
