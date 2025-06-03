@@ -21,6 +21,23 @@
       <button id="openSettingsBtn" class="btn-primary">設定を開く</button>
     </div>
     
+    <div id="contentPreview" class="content-preview hidden">
+      <div class="content-header">
+        <h3>抽出されたコンテンツ</h3>
+        <div class="content-actions">
+          <button id="copyContentBtn" class="btn-copy">📋 コピー</button>
+          <button id="closeContentBtn" class="btn-close">✕</button>
+        </div>
+      </div>
+      <div class="content-body">
+        <div class="content-meta">
+          <span id="contentTitle"></span>
+          <span id="contentInfo"></span>
+        </div>
+        <div class="content-text" id="contentText"></div>
+      </div>
+    </div>
+    
     <div id="difyFrame" class="dify-container">
       <iframe id="difyIframe" src="" frameborder="0"></iframe>
     </div>

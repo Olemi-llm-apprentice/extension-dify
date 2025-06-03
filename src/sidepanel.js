@@ -7,6 +7,12 @@ class SidePanel {
     this.settingsBtn = document.getElementById('settingsBtn');
     this.extractBtn = document.getElementById('extractBtn');
     this.openSettingsBtn = document.getElementById('openSettingsBtn');
+    this.contentPreview = document.getElementById('contentPreview');
+    this.contentTitle = document.getElementById('contentTitle');
+    this.contentInfo = document.getElementById('contentInfo');
+    this.contentText = document.getElementById('contentText');
+    this.copyContentBtn = document.getElementById('copyContentBtn');
+    this.closeContentBtn = document.getElementById('closeContentBtn');
     
     this.init();
   }
@@ -21,6 +27,8 @@ class SidePanel {
     this.settingsBtn.addEventListener('click', () => this.openSettings());
     this.extractBtn.addEventListener('click', () => this.extractPageContent());
     this.openSettingsBtn.addEventListener('click', () => this.openSettings());
+    this.copyContentBtn.addEventListener('click', () => this.copyContentToClipboard());
+    this.closeContentBtn.addEventListener('click', () => this.hideContentPreview());
     
     this.iframe.addEventListener('load', () => {
       this.hideLoading();
@@ -99,46 +107,21 @@ class SidePanel {
   }
   
   handleExtractedContent(pageData) {
+    console.log('🔍 [Dify Extension] Handling extracted content:', pageData);
     this.showContentPreview(pageData);
-    this.sendContentToDify(pageData);
+    this.currentContent = pageData;
+    this.attemptDifyIntegration(pageData);
   }
   
   showContentPreview(pageData) {
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-      position: fixed;
-      top: 60px;
-      left: 16px;
-      right: 16px;
-      background: #10b981;
-      color: white;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 12px;
-      z-index: 1000;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    `;
-    notification.innerHTML = `
-      <div><strong>コンテンツを抽出しました</strong></div>
-      <div>${pageData.extractMethod} | ${pageData.contentLength}文字</div>
-      <div style="margin-top: 4px; opacity: 0.9;">${pageData.title}</div>
-    `;
+    this.contentTitle.textContent = pageData.title;
+    this.contentInfo.textContent = `${pageData.extractMethod} | ${pageData.contentLength}文字 | ${pageData.url}`;
+    this.contentText.textContent = pageData.content;
+    this.contentPreview.classList.remove('hidden');
     
-    document.body.appendChild(notification);
+    this.showTemporaryNotification('コンテンツを抽出しました！クリップボードにコピーされています。');
     
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.parentNode.removeChild(notification);
-      }
-    }, 4000);
-  }
-  
-  sendContentToDify(pageData) {
-    const message = `【ページ情報】\nタイトル: ${pageData.title}\nURL: ${pageData.url}\n抽出方法: ${pageData.extractMethod}\n文字数: ${pageData.contentLength}文字\n\n【本文】\n${pageData.content}`;
-    
-    this.waitForIframeLoad().then(() => {
-      this.injectContentIntoChat(message);
-    });
+    this.copyContentToClipboard();
   }
   
   async waitForIframeLoad() {
@@ -151,106 +134,129 @@ class SidePanel {
     });
   }
   
-  injectContentIntoChat(message) {
+  attemptDifyIntegration(pageData) {
+    const message = `【ページ情報】\nタイトル: ${pageData.title}\nURL: ${pageData.url}\n抽出方法: ${pageData.extractMethod}\n文字数: ${pageData.contentLength}文字\n\n【本文】\n${pageData.content}`;
+    
+    this.waitForIframeLoad().then(() => {
+      this.tryInjectContentIntoChat(message);
+    });
+  }
+  
+  tryInjectContentIntoChat(message) {
     try {
-      const iframeDoc = this.iframe.contentDocument;
-      if (!iframeDoc) {
-        this.fallbackContentDelivery(message);
-        return;
-      }
+      console.log('🔍 [Dify Extension] Attempting to inject content into Dify chat');
       
-      const selectors = [
-        'textarea[placeholder*="メッセージ"]',
-        'textarea[placeholder*="message"]', 
-        'textarea[placeholder*="Message"]',
-        'input[type="text"][placeholder*="メッセージ"]',
-        'input[type="text"][placeholder*="message"]',
-        '.chat-input textarea',
-        '.message-input textarea',
-        '[role="textbox"]',
-        'textarea',
-        'input[type="text"]'
-      ];
-      
-      let inputElement = null;
-      for (const selector of selectors) {
-        inputElement = iframeDoc.querySelector(selector);
-        if (inputElement) break;
-      }
-      
-      if (inputElement) {
-        inputElement.focus();
-        inputElement.value = message;
-        
-        ['input', 'change', 'keyup'].forEach(eventType => {
-          inputElement.dispatchEvent(new Event(eventType, { bubbles: true }));
-        });
-        
-        setTimeout(() => {
-          const submitSelectors = [
-            'button[type="submit"]',
-            '.send-button',
-            '.submit-button', 
-            'button[aria-label*="送信"]',
-            'button[aria-label*="send"]',
-            'button[title*="送信"]',
-            'button[title*="send"]'
-          ];
-          
-          let submitButton = null;
-          for (const selector of submitSelectors) {
-            submitButton = iframeDoc.querySelector(selector);
-            if (submitButton) break;
+      setTimeout(() => {
+        try {
+          const iframeDoc = this.iframe.contentDocument;
+          if (iframeDoc) {
+            console.log('🔍 [Dify Extension] Access to iframe document successful');
+            this.findAndFillInput(iframeDoc, message);
+          } else {
+            console.log('🔍 [Dify Extension] Cannot access iframe document (CORS restriction)');
+            this.showManualInstructions();
           }
-          
-          if (submitButton && !submitButton.disabled) {
-            submitButton.click();
-          }
-        }, 500);
-      } else {
-        this.fallbackContentDelivery(message);
-      }
+        } catch (error) {
+          console.log('🔍 [Dify Extension] Cross-origin iframe access denied:', error);
+          this.showManualInstructions();
+        }
+      }, 2000);
       
     } catch (error) {
       console.error('Failed to inject content into chat:', error);
-      this.fallbackContentDelivery(message);
+      this.showManualInstructions();
     }
   }
   
-  fallbackContentDelivery(message) {
-    this.iframe.contentWindow.postMessage({
-      type: 'DIFY_EXTENSION_CONTENT',
-      content: message,
-      timestamp: Date.now()
-    }, '*');
+  findAndFillInput(doc, message) {
+    const selectors = [
+      'textarea[placeholder*="メッセージ"]',
+      'textarea[placeholder*="message"]', 
+      'textarea[placeholder*="Message"]',
+      'input[type="text"][placeholder*="メッセージ"]',
+      'input[type="text"][placeholder*="message"]',
+      '.chat-input textarea',
+      '.message-input textarea',
+      '[role="textbox"]',
+      'textarea',
+      'input[type="text"]'
+    ];
     
-    navigator.clipboard.writeText(message).then(() => {
-      const notification = document.createElement('div');
-      notification.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        left: 16px;
-        right: 16px;
-        background: #3b82f6;
-        color: white;
-        padding: 12px;
-        border-radius: 8px;
-        font-size: 12px;
-        z-index: 1000;
-        text-align: center;
-      `;
-      notification.textContent = 'コンテンツをクリップボードにコピーしました。Difyアプリでペーストしてください。';
+    let inputElement = null;
+    for (const selector of selectors) {
+      inputElement = doc.querySelector(selector);
+      if (inputElement) {
+        console.log('🔍 [Dify Extension] Found input element:', selector);
+        break;
+      }
+    }
+    
+    if (inputElement) {
+      inputElement.focus();
+      inputElement.value = message;
       
-      document.body.appendChild(notification);
+      ['input', 'change', 'keyup'].forEach(eventType => {
+        inputElement.dispatchEvent(new Event(eventType, { bubbles: true }));
+      });
       
+      this.showTemporaryNotification('コンテンツをDifyアプリに自動入力しました！');
+    } else {
+      console.log('🔍 [Dify Extension] No suitable input element found');
+      this.showManualInstructions();
+    }
+  }
+  
+  showManualInstructions() {
+    this.showTemporaryNotification('Difyアプリのチャット欄にペーストしてください。コンテンツはクリップボードにコピー済みです。', 5000);
+  }
+  
+  showTemporaryNotification(message, duration = 3000) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 60px;
+      left: 16px;
+      right: 16px;
+      background: #10b981;
+      color: white;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      z-index: 1000;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    `;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, duration);
+  }
+  
+  async copyContentToClipboard() {
+    if (!this.currentContent) return;
+    
+    const message = `【ページ情報】\nタイトル: ${this.currentContent.title}\nURL: ${this.currentContent.url}\n抽出方法: ${this.currentContent.extractMethod}\n文字数: ${this.currentContent.contentLength}文字\n\n【本文】\n${this.currentContent.content}`;
+    
+    try {
+      await navigator.clipboard.writeText(message);
+      console.log('🔍 [Dify Extension] Content copied to clipboard');
+      this.copyContentBtn.textContent = '✅ コピー済み';
       setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
-        }
-      }, 3000);
-    }).catch(() => {
-      console.log('Clipboard access failed');
-    });
+        this.copyContentBtn.textContent = '📋 コピー';
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+    }
+  }
+  
+  hideContentPreview() {
+    this.contentPreview.classList.add('hidden');
+    this.currentContent = null;
   }
 }
 
