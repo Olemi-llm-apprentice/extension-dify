@@ -117,7 +117,7 @@ body {
 .content-preview {
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
-  max-height: 40vh;
+  max-height: 20vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -201,14 +201,25 @@ body {
   line-height: 1.5;
   color: #374151;
   white-space: pre-wrap;
-  max-height: 200px;
+  max-height: 100px;
   overflow-y: auto;
   background: #f9fafb;
-  padding: 12px;
+  padding: 8px;
   border-radius: 6px;
   border: 1px solid #e5e7eb;
 }
 
 .hidden {
   display: none !important;
+}
+
+/* 手動の「ページ内容を取得」ボタンを非表示（自動抽出のため不要） */
+#extractBtn {
+  display: none !important;
+}
+
+/* 更新ボタンのローディング状態 */
+#refreshBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

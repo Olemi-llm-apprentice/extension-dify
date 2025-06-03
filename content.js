@@ -71,11 +71,18 @@ async function extractPageContent() {
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('🔍 [Dify Extension] Content script received message:', request);
   if (request.action === 'extractContent') {
+    console.log('🔍 [Dify Extension] Starting content extraction in content script');
     extractPageContent().then(pageData => {
+      console.log('🔍 [Dify Extension] Content extraction completed:', {
+        title: pageData.title,
+        contentLength: pageData.contentLength,
+        extractMethod: pageData.extractMethod
+      });
       sendResponse(pageData);
     }).catch(error => {
-      console.error('Content extraction failed:', error);
+      console.error('🔍 [Dify Extension] Content extraction failed:', error);
       sendResponse({ error: error.message });
     });
     return true; // 非同期レスポンスを示す
@@ -107,8 +114,8 @@ function createFloatingButton() {
   button.innerHTML = '💬';
   
   let isDragging = false;
-  let dragStartX = 0;
-  let dragStartY = 0;
+  let dragStartX = null;
+  let dragStartY = null;
   let buttonStartX = 0;
   let buttonStartY = 0;
   
@@ -133,112 +140,13 @@ function createFloatingButton() {
     button.style.bottom = 'auto';
   }
   
-  let mouseDownTime = 0;
-  let longPressTimer = null;
-  let isLongPress = false;
-  
-  // イベントハンドラーを保存
-  const originalClickHandler = () => {
-    console.log('🔍 [Dify Extension] Short click detected, opening side panel');
+  // フローティングボタンのクリックハンドラー（サイドパネルを開く）
+  const clickHandler = () => {
+    console.log('🔍 [Dify Extension] Floating button clicked, opening side panel');
     chrome.runtime.sendMessage({ action: 'openSidePanel' });
   };
   
-  const openSidePanelHandler = () => {
-    console.log('🔍 [Dify Extension] Opening side panel with stored content');
-    chrome.runtime.sendMessage({ action: 'openSidePanel' }, (response) => {
-      if (response && response.success) {
-        // ボタンを元に戻す
-        button.innerHTML = '💬';
-        button.style.background = '#4f46e5';
-        button.title = '';
-        button.removeEventListener('click', openSidePanelHandler);
-        // 元のイベントリスナーは mouseup で処理されるので追加不要
-      }
-    });
-  };
-  
-  function showTooltip(message, duration = 3000) {
-    const tooltip = document.createElement('div');
-    tooltip.style.cssText = `
-      position: fixed;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 4px;
-      font-size: 12px;
-      z-index: 10001;
-      pointer-events: none;
-      max-width: 200px;
-      word-wrap: break-word;
-    `;
-    tooltip.textContent = message;
-    
-    const buttonRect = button.getBoundingClientRect();
-    tooltip.style.left = (buttonRect.left - 100) + 'px';
-    tooltip.style.top = (buttonRect.top - 40) + 'px';
-    
-    document.body.appendChild(tooltip);
-    
-    setTimeout(() => {
-      if (tooltip.parentNode) {
-        tooltip.parentNode.removeChild(tooltip);
-      }
-    }, duration);
-  }
-  
-  async function extractAndSendContent() {
-    console.log('🔍 [Dify Extension] Starting content extraction');
-    button.innerHTML = '⏳';
-    button.style.background = '#f59e0b';
-    
-    try {
-      const pageData = await extractPageContent();
-      console.log('🔍 [Dify Extension] Extracted content:', {
-        title: pageData.title,
-        contentLength: pageData.contentLength,
-        extractMethod: pageData.extractMethod
-      });
-      
-      showTooltip(`${pageData.extractMethod}\n文字数: ${pageData.contentLength}文字`);
-      
-      chrome.runtime.sendMessage({ 
-        action: 'sendContentToSidePanel', 
-        data: pageData 
-      }, (response) => {
-        console.log('🔍 [Dify Extension] Content send response:', response);
-        if (response && response.success) {
-          console.log('🔍 [Dify Extension] Content successfully stored');
-          showTooltip('コンテンツを抽出しました！\n💬ボタンをクリックしてサイドパネルを開いてください', 5000);
-          
-          // フローティングボタンを変更してサイドパネルを開けるようにする
-          button.innerHTML = '📋';
-          button.style.background = '#10b981';
-          button.title = 'クリックしてサイドパネルを開く';
-          
-          // 新しいクリックリスナーを追加
-          button.removeEventListener('click', originalClickHandler);
-          button.addEventListener('click', openSidePanelHandler);
-          
-        } else {
-          console.error('🔍 [Dify Extension] Failed to send content:', response?.error);
-          // エラー時にボタンを元に戻す
-          button.innerHTML = '💬';
-          button.style.background = '#4f46e5';
-        }
-      });
-      
-    } catch (error) {
-      console.error('🔍 [Dify Extension] Content extraction failed:', error);
-      button.innerHTML = '💬';
-      button.style.background = '#4f46e5';
-      showTooltip('コンテンツ抽出に失敗しました', 3000);
-    }
-  }
-  
   button.addEventListener('mousedown', (e) => {
-    console.log('🔍 [Dify Extension] Mousedown event triggered');
-    mouseDownTime = Date.now();
-    isLongPress = false;
     isDragging = false;
     
     dragStartX = e.clientX;
@@ -247,30 +155,20 @@ function createFloatingButton() {
     buttonStartX = pos.x;
     buttonStartY = pos.y;
     
-    longPressTimer = setTimeout(() => {
-      console.log('🔍 [Dify Extension] Long press timer fired');
-      if (!isDragging) {
-        isLongPress = true;
-        extractAndSendContent();
-      }
-    }, 800);
-    
     button.style.cursor = 'grabbing';
     button.style.transition = 'none';
     e.preventDefault();
   });
   
   document.addEventListener('mousemove', (e) => {
-    if (mouseDownTime === 0) return;
+    if (dragStartX === null) return;
     
     const deltaX = e.clientX - dragStartX;
     const deltaY = e.clientY - dragStartY;
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     
     if (distance > 5 && !isDragging) {
-      console.log('🔍 [Dify Extension] Starting drag, canceling long press');
       isDragging = true;
-      clearTimeout(longPressTimer);
     }
     
     if (isDragging) {
@@ -279,27 +177,18 @@ function createFloatingButton() {
   });
   
   document.addEventListener('mouseup', (e) => {
-    if (mouseDownTime === 0) return;
-    
-    console.log('🔍 [Dify Extension] Mouseup event triggered', {
-      isDragging,
-      isLongPress,
-      pressDuration: Date.now() - mouseDownTime
-    });
-    
-    clearTimeout(longPressTimer);
+    if (dragStartX === null) return;
     
     const deltaX = Math.abs(e.clientX - dragStartX);
     const deltaY = Math.abs(e.clientY - dragStartY);
-    const pressDuration = Date.now() - mouseDownTime;
     
-    if (!isDragging && !isLongPress && deltaX < 5 && deltaY < 5 && pressDuration < 800) {
-      originalClickHandler();
+    if (!isDragging && deltaX < 5 && deltaY < 5) {
+      clickHandler();
     }
     
     isDragging = false;
-    isLongPress = false;
-    mouseDownTime = 0;
+    dragStartX = null;
+    dragStartY = null;
     button.style.cursor = 'move';
     button.style.transition = 'transform 0.2s ease';
   });

@@ -5,7 +5,7 @@ class SidePanel {
     this.difyFrame = document.getElementById('difyFrame');
     this.loadingMessage = document.getElementById('loadingMessage');
     this.settingsBtn = document.getElementById('settingsBtn');
-    this.extractBtn = document.getElementById('extractBtn');
+    this.refreshBtn = document.getElementById('refreshBtn');
     this.openSettingsBtn = document.getElementById('openSettingsBtn');
     this.contentPreview = document.getElementById('contentPreview');
     this.contentTitle = document.getElementById('contentTitle');
@@ -22,11 +22,15 @@ class SidePanel {
     this.setupMessageListener();
     await this.loadDifyApp();
     await this.checkForPendingContent();
+    // 自動でアクティブタブのコンテンツを抽出
+    await this.autoExtractPageContent();
+    // サイドパネルがアクティブであることをbackgroundに通知
+    await this.registerSidePanel();
   }
   
   bindEvents() {
     this.settingsBtn.addEventListener('click', () => this.openSettings());
-    this.extractBtn.addEventListener('click', () => this.extractPageContent());
+    this.refreshBtn.addEventListener('click', () => this.manualExtractPageContent());
     this.openSettingsBtn.addEventListener('click', () => this.openSettings());
     this.copyContentBtn.addEventListener('click', () => this.copyContentToClipboard());
     this.closeContentBtn.addEventListener('click', () => this.hideContentPreview());
@@ -103,22 +107,98 @@ class SidePanel {
     chrome.runtime.openOptionsPage();
   }
   
-  async extractPageContent() {
+  async autoExtractPageContent() {
     try {
+      console.log('🔍 [Dify Extension] Auto extracting page content');
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
       if (!tab.id) {
+        console.log('🔍 [Dify Extension] No tab ID found for auto extraction');
+        return;
+      }
+      
+      // サイドパネル自体やchrome://ページは除外
+      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+        console.log('🔍 [Dify Extension] Skipping auto extraction for chrome page');
         return;
       }
       
       const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractContent' });
       
       if (response && response.content) {
-        this.sendContentToDify(response);
+        console.log('🔍 [Dify Extension] Auto content extraction successful');
+        this.handleExtractedContent(response);
       }
       
     } catch (error) {
-      console.error('Failed to extract page content:', error);
+      console.log('🔍 [Dify Extension] Auto extraction failed (normal for some pages):', error);
+    }
+  }
+
+  async manualExtractPageContent() {
+    try {
+      console.log('🔍 [Dify Extension] Manual refresh button clicked');
+      this.refreshBtn.innerHTML = '⏳';
+      this.refreshBtn.disabled = true;
+      
+      // 現在アクティブなタブを取得
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      console.log('🔍 [Dify Extension] Current active tab:', tab);
+      
+      if (!tab || !tab.id) {
+        console.error('🔍 [Dify Extension] No tab ID found for manual extraction');
+        return;
+      }
+      
+      // chrome:// ページの除外
+      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+        console.log('🔍 [Dify Extension] Skipping manual extraction for chrome page');
+        return;
+      }
+      
+      console.log('🔍 [Dify Extension] Sending extract message to tab:', tab.id);
+      const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractContent' });
+      console.log('🔍 [Dify Extension] Manual extraction response:', response);
+      
+      if (response && response.content) {
+        console.log('🔍 [Dify Extension] Manual content extraction successful');
+        this.handleExtractedContent(response);
+      } else {
+        console.error('🔍 [Dify Extension] No content in manual extraction response');
+      }
+      
+    } catch (error) {
+      console.error('🔍 [Dify Extension] Manual extraction failed:', error);
+    } finally {
+      // ボタンを元に戻す
+      setTimeout(() => {
+        this.refreshBtn.innerHTML = '🔄';
+        this.refreshBtn.disabled = false;
+      }, 1000);
+    }
+  }
+
+  async extractPageContent() {
+    try {
+      console.log('🔍 [Dify Extension] Extract page content (internal)');
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab.id) {
+        console.error('🔍 [Dify Extension] No tab ID found');
+        return;
+      }
+      
+      const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractContent' });
+      
+      if (response && response.content) {
+        console.log('🔍 [Dify Extension] Content extracted, handling in side panel');
+        this.handleExtractedContent(response);
+      } else {
+        console.error('🔍 [Dify Extension] No content in response or response is null');
+      }
+      
+    } catch (error) {
+      console.error('🔍 [Dify Extension] Failed to extract page content:', error);
     }
   }
   
@@ -130,17 +210,70 @@ class SidePanel {
   }
   
   showContentPreview(pageData) {
+    console.log('🔍 [Dify Extension] Updating content preview display:', {
+      title: pageData.title,
+      contentLength: pageData.contentLength,
+      url: pageData.url
+    });
+    
     this.contentTitle.textContent = pageData.title;
     this.contentInfo.textContent = `${pageData.extractMethod} | ${pageData.contentLength}文字 | ${pageData.url}`;
     this.contentText.textContent = pageData.content;
     this.contentPreview.classList.remove('hidden');
     
-    this.showTemporaryNotification('コンテンツを抽出しました！クリップボードにコピー済みです。下のDifyアプリでCtrl+Vでペーストしてください。', 6000);
-    
-    this.copyContentToClipboard();
+    // 表示更新を強制
+    this.contentPreview.style.display = 'flex';
     
     // ユーザーの注意をDifyアプリに向ける
     this.highlightDifyApp();
+    
+    console.log('🔍 [Dify Extension] Content preview updated successfully');
+  }
+
+  async registerSidePanel() {
+    try {
+      await chrome.runtime.sendMessage({ action: 'registerSidePanel' });
+      console.log('🔍 [Dify Extension] Side panel registered for auto navigation updates');
+      
+      // ナビゲーション更新をポーリングで監視
+      this.startNavigationPolling();
+    } catch (error) {
+      console.error('🔍 [Dify Extension] Failed to register side panel:', error);
+    }
+  }
+
+  // サイドパネルが閉じられた時の処理
+  unregisterSidePanel() {
+    try {
+      chrome.runtime.sendMessage({ action: 'unregisterSidePanel' });
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+      }
+    } catch (error) {
+      console.error('🔍 [Dify Extension] Failed to unregister side panel:', error);
+    }
+  }
+
+  startNavigationPolling() {
+    console.log('🔍 [Dify Extension] Starting navigation polling');
+    // 3秒ごとに新しいコンテンツをチェック
+    this.pollingInterval = setInterval(async () => {
+      try {
+        const response = await chrome.runtime.sendMessage({ action: 'getSidePanelContent' });
+        if (response && response.success && response.data) {
+          console.log('🔍 [Dify Extension] Found new navigation content, updating display');
+          console.log('🔍 [Dify Extension] New content data:', {
+            title: response.data.title,
+            url: response.data.url,
+            contentLength: response.data.contentLength
+          });
+          this.handleExtractedContent(response.data);
+        }
+        // ログを減らすため、コンテンツがない場合はログ出力しない
+      } catch (error) {
+        // エラーは無視（サイドパネルが閉じられた場合など）
+      }
+    }, 3000);
   }
   
   async waitForIframeLoad() {
@@ -218,7 +351,7 @@ class SidePanel {
         inputElement.dispatchEvent(new Event(eventType, { bubbles: true }));
       });
       
-      this.showTemporaryNotification('コンテンツをDifyアプリに自動入力しました！');
+      // 通知を表示しない
     } else {
       console.log('🔍 [Dify Extension] No suitable input element found');
       this.showManualInstructions();
@@ -226,7 +359,7 @@ class SidePanel {
   }
   
   showManualInstructions() {
-    this.showTemporaryNotification('Difyアプリのチャット欄にペーストしてください。コンテンツはクリップボードにコピー済みです。', 5000);
+    // 通知を表示しない（自動クリップボードコピーも削除済みのため）
   }
   
   showTemporaryNotification(message, duration = 3000) {
