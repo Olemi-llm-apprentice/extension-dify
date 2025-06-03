@@ -135,9 +135,12 @@ class SidePanel {
     this.contentText.textContent = pageData.content;
     this.contentPreview.classList.remove('hidden');
     
-    this.showTemporaryNotification('コンテンツを抽出しました！クリップボードにコピーされています。');
+    this.showTemporaryNotification('コンテンツを抽出しました！クリップボードにコピー済みです。下のDifyアプリでCtrl+Vでペーストしてください。', 6000);
     
     this.copyContentToClipboard();
+    
+    // ユーザーの注意をDifyアプリに向ける
+    this.highlightDifyApp();
   }
   
   async waitForIframeLoad() {
@@ -273,6 +276,25 @@ class SidePanel {
   hideContentPreview() {
     this.contentPreview.classList.add('hidden');
     this.currentContent = null;
+  }
+  
+  highlightDifyApp() {
+    // Difyアプリの枠を一時的にハイライト
+    this.difyFrame.style.transition = 'border 0.3s ease';
+    this.difyFrame.style.border = '3px solid #10b981';
+    this.difyFrame.style.borderRadius = '8px';
+    
+    setTimeout(() => {
+      this.difyFrame.style.border = 'none';
+      this.difyFrame.style.borderRadius = '0';
+    }, 3000);
+    
+    // iframeにフォーカスを当てる試み
+    try {
+      this.iframe.focus();
+    } catch (error) {
+      console.log('Cannot focus iframe due to cross-origin restrictions');
+    }
   }
 }
 

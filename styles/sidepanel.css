@@ -142,6 +142,16 @@ body {
 .content-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+
+.paste-hint {
+  font-size: 11px;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 4px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
 }
 
 .btn-copy, .btn-close {
