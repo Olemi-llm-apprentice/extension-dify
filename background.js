@@ -11,9 +11,25 @@ chrome.action.onClicked.addListener((tab) => {
   chrome.sidePanel.open({ tabId: tab.id });
 });
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
   if (request.action === 'openSidePanel') {
     chrome.sidePanel.open({ tabId: sender.tab.id });
+  } else if (request.action === 'sendContentToSidePanel') {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs[0]) {
+        await chrome.sidePanel.open({ tabId: tabs[0].id });
+        
+        setTimeout(() => {
+          chrome.runtime.sendMessage({
+            action: 'receiveExtractedContent',
+            data: request.data
+          });
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Failed to send content to side panel:', error);
+    }
   }
 });
 

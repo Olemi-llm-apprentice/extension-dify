@@ -13,6 +13,7 @@ class SidePanel {
   
   async init() {
     this.bindEvents();
+    this.setupMessageListener();
     await this.loadDifyApp();
   }
   
@@ -23,6 +24,14 @@ class SidePanel {
     
     this.iframe.addEventListener('load', () => {
       this.hideLoading();
+    });
+  }
+  
+  setupMessageListener() {
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request.action === 'receiveExtractedContent') {
+        this.handleExtractedContent(request.data);
+      }
     });
   }
   
@@ -87,17 +96,159 @@ class SidePanel {
     }
   }
   
-  sendContentToDify(pageData) {
-    const message = `ページタイトル: ${pageData.title}\nURL: ${pageData.url}\n\n内容:\n${pageData.content}`;
+  handleExtractedContent(pageData) {
+    this.showContentPreview(pageData);
+    this.sendContentToDify(pageData);
+  }
+  
+  showContentPreview(pageData) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 60px;
+      left: 16px;
+      right: 16px;
+      background: #10b981;
+      color: white;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      z-index: 1000;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    `;
+    notification.innerHTML = `
+      <div><strong>コンテンツを抽出しました</strong></div>
+      <div>${pageData.extractMethod} | ${pageData.contentLength}文字</div>
+      <div style="margin-top: 4px; opacity: 0.9;">${pageData.title}</div>
+    `;
     
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 4000);
+  }
+  
+  sendContentToDify(pageData) {
+    const message = `【ページ情報】\nタイトル: ${pageData.title}\nURL: ${pageData.url}\n抽出方法: ${pageData.extractMethod}\n文字数: ${pageData.contentLength}文字\n\n【本文】\n${pageData.content}`;
+    
+    this.waitForIframeLoad().then(() => {
+      this.injectContentIntoChat(message);
+    });
+  }
+  
+  async waitForIframeLoad() {
+    return new Promise((resolve) => {
+      if (this.iframe.contentDocument && this.iframe.contentDocument.readyState === 'complete') {
+        resolve();
+      } else {
+        this.iframe.addEventListener('load', resolve, { once: true });
+      }
+    });
+  }
+  
+  injectContentIntoChat(message) {
     try {
-      this.iframe.contentWindow.postMessage({
-        type: 'DIFY_EXTENSION_MESSAGE',
-        content: message
-      }, '*');
+      const iframeDoc = this.iframe.contentDocument;
+      if (!iframeDoc) {
+        this.fallbackContentDelivery(message);
+        return;
+      }
+      
+      const selectors = [
+        'textarea[placeholder*="メッセージ"]',
+        'textarea[placeholder*="message"]', 
+        'textarea[placeholder*="Message"]',
+        'input[type="text"][placeholder*="メッセージ"]',
+        'input[type="text"][placeholder*="message"]',
+        '.chat-input textarea',
+        '.message-input textarea',
+        '[role="textbox"]',
+        'textarea',
+        'input[type="text"]'
+      ];
+      
+      let inputElement = null;
+      for (const selector of selectors) {
+        inputElement = iframeDoc.querySelector(selector);
+        if (inputElement) break;
+      }
+      
+      if (inputElement) {
+        inputElement.focus();
+        inputElement.value = message;
+        
+        ['input', 'change', 'keyup'].forEach(eventType => {
+          inputElement.dispatchEvent(new Event(eventType, { bubbles: true }));
+        });
+        
+        setTimeout(() => {
+          const submitSelectors = [
+            'button[type="submit"]',
+            '.send-button',
+            '.submit-button', 
+            'button[aria-label*="送信"]',
+            'button[aria-label*="send"]',
+            'button[title*="送信"]',
+            'button[title*="send"]'
+          ];
+          
+          let submitButton = null;
+          for (const selector of submitSelectors) {
+            submitButton = iframeDoc.querySelector(selector);
+            if (submitButton) break;
+          }
+          
+          if (submitButton && !submitButton.disabled) {
+            submitButton.click();
+          }
+        }, 500);
+      } else {
+        this.fallbackContentDelivery(message);
+      }
+      
     } catch (error) {
-      console.error('Failed to send content to Dify:', error);
+      console.error('Failed to inject content into chat:', error);
+      this.fallbackContentDelivery(message);
     }
+  }
+  
+  fallbackContentDelivery(message) {
+    this.iframe.contentWindow.postMessage({
+      type: 'DIFY_EXTENSION_CONTENT',
+      content: message,
+      timestamp: Date.now()
+    }, '*');
+    
+    navigator.clipboard.writeText(message).then(() => {
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 16px;
+        right: 16px;
+        background: #3b82f6;
+        color: white;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        z-index: 1000;
+        text-align: center;
+      `;
+      notification.textContent = 'コンテンツをクリップボードにコピーしました。Difyアプリでペーストしてください。';
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 3000);
+    }).catch(() => {
+      console.log('Clipboard access failed');
+    });
   }
 }
 
