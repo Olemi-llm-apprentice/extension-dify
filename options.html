@@ -78,7 +78,9 @@
             <label for="extractSelectors">カスタム抽出セレクタ（上級者向け）</label>
             <textarea id="extractSelectors" rows="4" placeholder="article, .content, #main-content"></textarea>
             <p class="help-text">
-              カンマ区切りでCSSセレクタを指定できます。空の場合はデフォルトの抽出ロジックを使用します。
+              <strong>デフォルト:</strong> ページのbody全体から不要要素（広告、ナビ、フッター等）を除外して抽出<br>
+              <strong>カスタム:</strong> カンマ区切りでCSSセレクタを指定すると、指定要素のみを抽出します<br>
+              例: <code>article, .post-content, #main</code>
             </p>
           </div>
         </section>

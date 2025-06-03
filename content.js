@@ -1,46 +1,64 @@
-function extractPageContent() {
+async function extractPageContent() {
   const title = document.title;
   let content = '';
   let extractMethod = '';
   
-  const article = document.querySelector('article');
-  if (article) {
-    content = article.innerText;
-    extractMethod = 'article要素から抽出';
-  } else {
-    const main = document.querySelector('main');
-    if (main) {
-      content = main.innerText;
-      extractMethod = 'main要素から抽出';
-    } else {
-      const contentSelectors = [
-        '.content',
-        '.article-content', 
-        '.post-content',
-        '.entry-content',
-        '.blog-content',
-        '#content',
-        '.main-content'
-      ];
-      
-      for (const selector of contentSelectors) {
+  // カスタムセレクタの設定を確認
+  const { extractSelectors } = await chrome.storage.sync.get(['extractSelectors']);
+  
+  if (extractSelectors && extractSelectors.trim()) {
+    // 上級者設定: カスタムセレクタを使用
+    const customSelectors = extractSelectors.split(',').map(s => s.trim());
+    for (const selector of customSelectors) {
+      try {
         const element = document.querySelector(selector);
         if (element) {
           content = element.innerText;
-          extractMethod = `${selector}セレクタから抽出`;
+          extractMethod = `カスタムセレクタ「${selector}」から抽出`;
           break;
         }
-      }
-      
-      if (!content) {
-        const paragraphs = document.querySelectorAll('p');
-        const validParagraphs = Array.from(paragraphs)
-          .map(p => p.innerText.trim())
-          .filter(text => text.length > 50);
-        content = validParagraphs.join('\n\n');
-        extractMethod = `${validParagraphs.length}個のp要素から抽出`;
+      } catch (error) {
+        console.warn('Invalid selector:', selector);
       }
     }
+  }
+  
+  if (!content) {
+    // デフォルト設定: body全体から取得（不要な要素を除外）
+    const bodyClone = document.body.cloneNode(true);
+    
+    // 不要な要素を削除
+    const unwantedSelectors = [
+      'script', 'style', 'noscript', 'iframe', 'object', 'embed',
+      'header', 'nav', 'footer', 'aside', '.advertisement', '.ads',
+      '.social-share', '.comments', '.sidebar', '.menu', '.navigation',
+      '[class*="ad-"]', '[id*="ad-"]', '[class*="advertisement"]',
+      '[class*="social"]', '[class*="share"]', '[class*="comment"]',
+      '.cookie-notice', '.popup', '.modal', '.overlay',
+      '#dify-floating-button' // 自身のフローティングボタンを除外
+    ];
+    
+    unwantedSelectors.forEach(selector => {
+      try {
+        const elements = bodyClone.querySelectorAll(selector);
+        elements.forEach(el => el.remove());
+      } catch (error) {
+        console.warn('Selector removal failed:', selector);
+      }
+    });
+    
+    // テキストを取得
+    content = bodyClone.innerText || bodyClone.textContent || '';
+    
+    // 空行の除去と整理
+    content = content
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n'); // 3つ以上の連続改行を2つに
+    
+    extractMethod = 'body全体から抽出（不要要素除外済み）';
   }
   
   return {
@@ -54,8 +72,13 @@ function extractPageContent() {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'extractContent') {
-    const pageData = extractPageContent();
-    sendResponse(pageData);
+    extractPageContent().then(pageData => {
+      sendResponse(pageData);
+    }).catch(error => {
+      console.error('Content extraction failed:', error);
+      sendResponse({ error: error.message });
+    });
+    return true; // 非同期レスポンスを示す
   }
 });
 
@@ -163,44 +186,53 @@ function createFloatingButton() {
     }, duration);
   }
   
-  function extractAndSendContent() {
+  async function extractAndSendContent() {
     console.log('🔍 [Dify Extension] Starting content extraction');
     button.innerHTML = '⏳';
     button.style.background = '#f59e0b';
     
-    const pageData = extractPageContent();
-    console.log('🔍 [Dify Extension] Extracted content:', {
-      title: pageData.title,
-      contentLength: pageData.contentLength,
-      extractMethod: pageData.extractMethod
-    });
-    
-    showTooltip(`${pageData.extractMethod}\n文字数: ${pageData.contentLength}文字`);
-    
-    chrome.runtime.sendMessage({ 
-      action: 'sendContentToSidePanel', 
-      data: pageData 
-    }, (response) => {
-      console.log('🔍 [Dify Extension] Content send response:', response);
-      if (response && response.success) {
-        console.log('🔍 [Dify Extension] Content successfully stored');
-        showTooltip('コンテンツを抽出しました！\n💬ボタンをクリックしてサイドパネルを開いてください', 5000);
-        
-        // フローティングボタンを変更してサイドパネルを開けるようにする
-        button.innerHTML = '📋';
-        button.style.background = '#10b981';
-        button.title = 'クリックしてサイドパネルを開く';
-        
-        // 新しいクリックリスナーを追加
-        button.removeEventListener('click', originalClickHandler);
-        button.addEventListener('click', openSidePanelHandler);
-        
-      } else {
-        console.error('🔍 [Dify Extension] Failed to send content:', response?.error);
-      }
-    });
-    
-    // ボタンの状態はレスポンス後に変更されるため、ここでは変更しない
+    try {
+      const pageData = await extractPageContent();
+      console.log('🔍 [Dify Extension] Extracted content:', {
+        title: pageData.title,
+        contentLength: pageData.contentLength,
+        extractMethod: pageData.extractMethod
+      });
+      
+      showTooltip(`${pageData.extractMethod}\n文字数: ${pageData.contentLength}文字`);
+      
+      chrome.runtime.sendMessage({ 
+        action: 'sendContentToSidePanel', 
+        data: pageData 
+      }, (response) => {
+        console.log('🔍 [Dify Extension] Content send response:', response);
+        if (response && response.success) {
+          console.log('🔍 [Dify Extension] Content successfully stored');
+          showTooltip('コンテンツを抽出しました！\n💬ボタンをクリックしてサイドパネルを開いてください', 5000);
+          
+          // フローティングボタンを変更してサイドパネルを開けるようにする
+          button.innerHTML = '📋';
+          button.style.background = '#10b981';
+          button.title = 'クリックしてサイドパネルを開く';
+          
+          // 新しいクリックリスナーを追加
+          button.removeEventListener('click', originalClickHandler);
+          button.addEventListener('click', openSidePanelHandler);
+          
+        } else {
+          console.error('🔍 [Dify Extension] Failed to send content:', response?.error);
+          // エラー時にボタンを元に戻す
+          button.innerHTML = '💬';
+          button.style.background = '#4f46e5';
+        }
+      });
+      
+    } catch (error) {
+      console.error('🔍 [Dify Extension] Content extraction failed:', error);
+      button.innerHTML = '💬';
+      button.style.background = '#4f46e5';
+      showTooltip('コンテンツ抽出に失敗しました', 3000);
+    }
   }
   
   button.addEventListener('mousedown', (e) => {
