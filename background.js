@@ -24,6 +24,7 @@ chrome.action.onClicked.addListener((tab) => {
 let pendingContent = null;
 let navigationTimeout = null;
 let isSidePanelOpen = false;
+let lastExtractedUrl = null;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('🔍 [Dify Extension] Background received message:', request.action, request);
@@ -78,6 +79,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.log('🔍 [Dify Extension] Unregistering side panel');
         isSidePanelOpen = false;
         sendResponse({ success: true });
+      } else if (request.action === 'updateLastExtractedUrl') {
+        console.log('🔍 [Dify Extension] Updating lastExtractedUrl to:', request.url);
+        lastExtractedUrl = request.url;
+        sendResponse({ success: true });
       } else {
         console.log('🔍 [Dify Extension] Unknown action:', request.action);
         sendResponse({ success: false, error: 'Unknown action' });
@@ -93,7 +98,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   const tab = await chrome.tabs.get(activeInfo.tabId);
+  console.log('🔍 [Dify Extension] Tab activated:', {
+    tabId: activeInfo.tabId,
+    url: tab.url,
+    isSidePanelOpen,
+    lastExtractedUrl
+  });
+  
   checkSitePermissions(tab.url);
+  
+  // サイドパネルが開いている場合、URL変更をチェック
+  if (isSidePanelOpen && tab.url && tab.url !== lastExtractedUrl) {
+    console.log('🔍 [Dify Extension] URL changed from', lastExtractedUrl, 'to', tab.url);
+    
+    // chrome:// ページやエクステンションページは除外
+    if (!tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+      console.log('🔍 [Dify Extension] Starting auto extraction due to tab switch');
+      handleNavigationWithDebounce(activeInfo.tabId);
+    } else {
+      console.log('🔍 [Dify Extension] Skipping auto extraction for system page');
+    }
+  } else if (isSidePanelOpen) {
+    console.log('🔍 [Dify Extension] Same URL, skipping auto extraction');
+  }
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
@@ -116,8 +143,13 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         console.log('🔍 [Dify Extension] Current active tab:', activeTab?.id, 'Updated tab:', tabId);
         
         if (activeTab && activeTab.id === tabId) {
-          console.log('🔍 [Dify Extension] Active tab updated and side panel is open, starting auto extraction');
-          handleNavigationWithDebounce(tabId);
+          // URL変更検知
+          if (tab.url !== lastExtractedUrl) {
+            console.log('🔍 [Dify Extension] URL changed from', lastExtractedUrl, 'to', tab.url, '- starting auto extraction');
+            handleNavigationWithDebounce(tabId);
+          } else {
+            console.log('🔍 [Dify Extension] Same URL, skipping auto extraction');
+          }
         } else {
           console.log('🔍 [Dify Extension] Updated tab is not active tab');
         }
@@ -138,9 +170,9 @@ async function handleNavigationWithDebounce(tabId) {
     clearTimeout(navigationTimeout);
   }
   
-  console.log('🔍 [Dify Extension] Page navigation detected, starting 4s debounce timer');
+  console.log('🔍 [Dify Extension] Page navigation detected, starting 2.5s debounce timer');
   
-  // 4秒後に自動抽出実行
+  // 2.5秒後に自動抽出実行
   navigationTimeout = setTimeout(async () => {
     try {
       const tab = await chrome.tabs.get(tabId);
@@ -161,12 +193,16 @@ async function handleNavigationWithDebounce(tabId) {
         
         // pendingContentに保存してサイドパネルがポーリングできるようにする
         pendingContent = response;
+        
+        // 抽出に成功したURLを記録
+        lastExtractedUrl = tab.url;
+        console.log('🔍 [Dify Extension] Updated lastExtractedUrl to:', lastExtractedUrl);
       }
       
     } catch (error) {
       console.log('🔍 [Dify Extension] Auto extraction failed (normal for some pages):', error);
     }
-  }, 4000); // 4秒待機
+  }, 2500); // 2.5秒待機
 }
 
 async function checkSitePermissions(url) {

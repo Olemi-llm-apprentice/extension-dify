@@ -207,6 +207,12 @@ class SidePanel {
     this.showContentPreview(pageData);
     this.currentContent = pageData;
     this.attemptDifyIntegration(pageData);
+    
+    // URLを記録するためにbackgroundに通知
+    chrome.runtime.sendMessage({ 
+      action: 'updateLastExtractedUrl', 
+      url: pageData.url 
+    });
   }
   
   showContentPreview(pageData) {
