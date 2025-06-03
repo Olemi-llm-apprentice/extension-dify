@@ -157,17 +157,16 @@ function createFloatingButton() {
     
     showTooltip(`${pageData.extractMethod}\n文字数: ${pageData.contentLength}文字`);
     
-    chrome.runtime.sendMessage({ action: 'openSidePanel' }, (response) => {
-      console.log('🔍 [Dify Extension] Side panel open response:', response);
-      setTimeout(() => {
-        console.log('🔍 [Dify Extension] Sending content to side panel');
-        chrome.runtime.sendMessage({ 
-          action: 'sendContentToSidePanel', 
-          data: pageData 
-        }, (response) => {
-          console.log('🔍 [Dify Extension] Content send response:', response);
-        });
-      }, 500);
+    chrome.runtime.sendMessage({ 
+      action: 'sendContentToSidePanel', 
+      data: pageData 
+    }, (response) => {
+      console.log('🔍 [Dify Extension] Content send response:', response);
+      if (response && response.success) {
+        console.log('🔍 [Dify Extension] Content successfully sent to side panel');
+      } else {
+        console.error('🔍 [Dify Extension] Failed to send content:', response?.error);
+      }
     });
     
     setTimeout(() => {

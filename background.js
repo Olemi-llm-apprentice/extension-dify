@@ -11,32 +11,47 @@ chrome.action.onClicked.addListener((tab) => {
   chrome.sidePanel.open({ tabId: tab.id });
 });
 
+let pendingContent = null;
+
 chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
   console.log('🔍 [Dify Extension] Background received message:', request.action, request);
   
-  if (request.action === 'openSidePanel') {
-    console.log('🔍 [Dify Extension] Opening side panel for tab:', sender.tab?.id);
-    chrome.sidePanel.open({ tabId: sender.tab.id });
-  } else if (request.action === 'sendContentToSidePanel') {
-    try {
+  try {
+    if (request.action === 'openSidePanel') {
+      console.log('🔍 [Dify Extension] Opening side panel for tab:', sender.tab?.id);
+      if (sender.tab?.id) {
+        await chrome.sidePanel.open({ tabId: sender.tab.id });
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: 'No tab ID' });
+      }
+    } else if (request.action === 'sendContentToSidePanel') {
       console.log('🔍 [Dify Extension] Processing sendContentToSidePanel request');
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tabs[0]) {
-        console.log('🔍 [Dify Extension] Opening side panel and sending content');
+        console.log('🔍 [Dify Extension] Opening side panel and storing content');
+        pendingContent = request.data;
         await chrome.sidePanel.open({ tabId: tabs[0].id });
-        
-        setTimeout(() => {
-          console.log('🔍 [Dify Extension] Forwarding content to side panel');
-          chrome.runtime.sendMessage({
-            action: 'receiveExtractedContent',
-            data: request.data
-          });
-        }, 1000);
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: 'No active tab' });
       }
-    } catch (error) {
-      console.error('Failed to send content to side panel:', error);
+    } else if (request.action === 'getSidePanelContent') {
+      console.log('🔍 [Dify Extension] Side panel requesting content');
+      if (pendingContent) {
+        const content = pendingContent;
+        pendingContent = null;
+        sendResponse({ success: true, data: content });
+      } else {
+        sendResponse({ success: false, error: 'No pending content' });
+      }
     }
+  } catch (error) {
+    console.error('Error in background message handler:', error);
+    sendResponse({ success: false, error: error.message });
   }
+  
+  return true;
 });
 
 chrome.tabs.onActivated.addListener(async (activeInfo) => {

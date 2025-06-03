@@ -115,8 +115,12 @@ class Popup {
         chrome.runtime.sendMessage({ 
           action: 'sendContentToSidePanel', 
           data: response 
+        }, (sendResponse) => {
+          console.log('🔍 [Dify Extension] Popup content send response:', sendResponse);
+          if (sendResponse && sendResponse.success) {
+            console.log('🔍 [Dify Extension] Content successfully sent from popup');
+          }
         });
-        await this.openSidePanel();
       } else {
         console.error('No content extracted from page');
       }

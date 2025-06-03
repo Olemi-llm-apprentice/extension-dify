@@ -21,6 +21,7 @@ class SidePanel {
     this.bindEvents();
     this.setupMessageListener();
     await this.loadDifyApp();
+    await this.checkForPendingContent();
   }
   
   bindEvents() {
@@ -43,6 +44,21 @@ class SidePanel {
         this.handleExtractedContent(request.data);
       }
     });
+  }
+  
+  async checkForPendingContent() {
+    try {
+      console.log('🔍 [Dify Extension] Checking for pending content');
+      const response = await chrome.runtime.sendMessage({ action: 'getSidePanelContent' });
+      if (response && response.success && response.data) {
+        console.log('🔍 [Dify Extension] Found pending content, processing');
+        this.handleExtractedContent(response.data);
+      } else {
+        console.log('🔍 [Dify Extension] No pending content found');
+      }
+    } catch (error) {
+      console.error('Error checking for pending content:', error);
+    }
   }
   
   async loadDifyApp() {
