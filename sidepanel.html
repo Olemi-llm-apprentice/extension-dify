@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dify Extension - サイドパネル</title>
+  <link rel="stylesheet" href="styles/sidepanel.css">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <h1>Dify Assistant</h1>
+      <div class="controls">
+        <button id="settingsBtn" class="btn-icon" title="設定">⚙️</button>
+        <button id="extractBtn" class="btn-icon" title="ページ内容を取得">📄</button>
+      </div>
+    </header>
+    
+    <div id="noUrlMessage" class="message">
+      <p>DifyアプリのURLが設定されていません。</p>
+      <button id="openSettingsBtn" class="btn-primary">設定を開く</button>
+    </div>
+    
+    <div id="difyFrame" class="dify-container">
+      <iframe id="difyIframe" src="" frameborder="0"></iframe>
+    </div>
+    
+    <div id="loadingMessage" class="message hidden">
+      <div class="loading-spinner"></div>
+      <p>読み込み中...</p>
+    </div>
+  </div>
+  
+  <script src="src/sidepanel.js"></script>
+</body>
+</html>

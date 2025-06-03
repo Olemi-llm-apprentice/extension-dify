@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dify Extension</title>
+  <link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <h1>Dify Extension</h1>
+      <button id="settingsBtn" class="btn-icon" title="設定">⚙️</button>
+    </header>
+    
+    <div class="content">
+      <div id="statusSection" class="section">
+        <div class="status-item">
+          <span class="status-label">状態:</span>
+          <span id="statusText" class="status-value">未設定</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">現在のサイト:</span>
+          <span id="currentSite" class="status-value">-</span>
+        </div>
+      </div>
+      
+      <div class="actions">
+        <button id="openSidePanelBtn" class="btn-primary">
+          📋 サイドパネルを開く
+        </button>
+        
+        <button id="extractContentBtn" class="btn-secondary">
+          📄 ページ内容を取得
+        </button>
+        
+        <button id="toggleBtn" class="btn-toggle">
+          <span id="toggleText">無効化</span>
+        </button>
+      </div>
+      
+      <div id="quickSettings" class="section">
+        <h3>クイック設定</h3>
+        <div class="input-group">
+          <label for="difyUrlInput">DifyアプリURL:</label>
+          <input type="url" id="difyUrlInput" placeholder="https://..." />
+          <button id="saveUrlBtn" class="btn-save">保存</button>
+        </div>
+      </div>
+    </div>
+    
+    <footer class="footer">
+      <button id="moreSettingsBtn" class="btn-link">詳細設定</button>
+    </footer>
+  </div>
+  
+  <script src="src/popup.js"></script>
+</body>
+</html>

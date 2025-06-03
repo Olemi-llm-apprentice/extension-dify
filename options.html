@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dify Extension - 設定</title>
+  <link rel="stylesheet" href="styles/options.css">
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <h1>Dify Extension 設定</h1>
+    </header>
+    
+    <main class="main">
+      <div class="container">
+        <section class="section">
+          <h2>基本設定</h2>
+          <div class="form-group">
+            <label for="difyAppUrl">DifyアプリURL <span class="required">*</span></label>
+            <input type="url" id="difyAppUrl" placeholder="https://udify.app/chatbot/your-app-id" />
+            <p class="help-text">
+              Difyでデプロイしたアプリの公開URLを入力してください。<br>
+              例: https://udify.app/chatbot/12345678-1234-1234-1234-123456789abc
+            </p>
+          </div>
+          
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="isEnabled" />
+              <span class="checkmark"></span>
+              拡張機能を有効にする
+            </label>
+          </div>
+        </section>
+        
+        <section class="section">
+          <h2>サイト制御</h2>
+          <div class="tabs">
+            <button class="tab-button active" data-tab="whitelist">ホワイトリスト</button>
+            <button class="tab-button" data-tab="blacklist">ブラックリスト</button>
+          </div>
+          
+          <div id="whitelist" class="tab-content active">
+            <p class="tab-description">
+              指定したサイトでのみ拡張機能を有効にします。空の場合は全サイトで有効になります。
+            </p>
+            <div class="site-input">
+              <input type="text" id="whitelistInput" placeholder="example.com" />
+              <button id="addWhitelistBtn" class="btn-add">追加</button>
+            </div>
+            <div id="whitelistItems" class="site-list"></div>
+          </div>
+          
+          <div id="blacklist" class="tab-content">
+            <p class="tab-description">
+              指定したサイトでは拡張機能を無効にします。
+            </p>
+            <div class="site-input">
+              <input type="text" id="blacklistInput" placeholder="example.com" />
+              <button id="addBlacklistBtn" class="btn-add">追加</button>
+            </div>
+            <div id="blacklistItems" class="site-list"></div>
+          </div>
+        </section>
+        
+        <section class="section">
+          <h2>コンテンツ抽出設定</h2>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="autoExtract" />
+              <span class="checkmark"></span>
+              ページ読み込み時に自動でコンテンツを抽出
+            </label>
+          </div>
+          
+          <div class="form-group">
+            <label for="extractSelectors">カスタム抽出セレクタ（上級者向け）</label>
+            <textarea id="extractSelectors" rows="4" placeholder="article, .content, #main-content"></textarea>
+            <p class="help-text">
+              カンマ区切りでCSSセレクタを指定できます。空の場合はデフォルトの抽出ロジックを使用します。
+            </p>
+          </div>
+        </section>
+        
+        <div class="actions">
+          <button id="saveBtn" class="btn-primary">設定を保存</button>
+          <button id="resetBtn" class="btn-secondary">リセット</button>
+        </div>
+        
+        <div id="message" class="message hidden"></div>
+      </div>
+    </main>
+  </div>
+  
+  <script src="src/options.js"></script>
+</body>
+</html>
