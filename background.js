@@ -28,22 +28,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
       } else if (request.action === 'sendContentToSidePanel') {
         console.log('🔍 [Dify Extension] Processing sendContentToSidePanel request');
+        console.log('🔍 [Dify Extension] Storing content for side panel');
+        pendingContent = request.data;
+        sendResponse({ success: true, message: 'Content stored. Please open side panel manually.' });
+      } else if (request.action === 'openSidePanelWithContent') {
+        console.log('🔍 [Dify Extension] Opening side panel with user gesture');
         try {
-          const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-          console.log('🔍 [Dify Extension] Found active tabs:', tabs.length);
-          if (tabs[0]) {
-            console.log('🔍 [Dify Extension] Storing content and opening side panel for tab:', tabs[0].id);
-            pendingContent = request.data;
-            await chrome.sidePanel.open({ tabId: tabs[0].id });
+          pendingContent = request.data;
+          if (sender.tab?.id) {
+            await chrome.sidePanel.open({ tabId: sender.tab.id });
             console.log('🔍 [Dify Extension] Side panel opened successfully');
             sendResponse({ success: true });
           } else {
-            console.error('🔍 [Dify Extension] No active tab found');
-            sendResponse({ success: false, error: 'No active tab' });
+            sendResponse({ success: false, error: 'No tab ID' });
           }
-        } catch (tabError) {
-          console.error('🔍 [Dify Extension] Error with tab operations:', tabError);
-          sendResponse({ success: false, error: 'Tab operation failed: ' + tabError.message });
+        } catch (sidePanelError) {
+          console.error('🔍 [Dify Extension] Error opening side panel:', sidePanelError);
+          sendResponse({ success: false, error: 'Side panel operation failed: ' + sidePanelError.message });
         }
       } else if (request.action === 'getSidePanelContent') {
         console.log('🔍 [Dify Extension] Side panel requesting content');

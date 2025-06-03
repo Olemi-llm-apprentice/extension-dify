@@ -114,6 +114,26 @@ function createFloatingButton() {
   let longPressTimer = null;
   let isLongPress = false;
   
+  // イベントハンドラーを保存
+  const originalClickHandler = () => {
+    console.log('🔍 [Dify Extension] Short click detected, opening side panel');
+    chrome.runtime.sendMessage({ action: 'openSidePanel' });
+  };
+  
+  const openSidePanelHandler = () => {
+    console.log('🔍 [Dify Extension] Opening side panel with stored content');
+    chrome.runtime.sendMessage({ action: 'openSidePanel' }, (response) => {
+      if (response && response.success) {
+        // ボタンを元に戻す
+        button.innerHTML = '💬';
+        button.style.background = '#4f46e5';
+        button.title = '';
+        button.removeEventListener('click', openSidePanelHandler);
+        // 元のイベントリスナーは mouseup で処理されるので追加不要
+      }
+    });
+  };
+  
   function showTooltip(message, duration = 3000) {
     const tooltip = document.createElement('div');
     tooltip.style.cssText = `
@@ -163,16 +183,24 @@ function createFloatingButton() {
     }, (response) => {
       console.log('🔍 [Dify Extension] Content send response:', response);
       if (response && response.success) {
-        console.log('🔍 [Dify Extension] Content successfully sent to side panel');
+        console.log('🔍 [Dify Extension] Content successfully stored');
+        showTooltip('コンテンツを抽出しました！\n💬ボタンをクリックしてサイドパネルを開いてください', 5000);
+        
+        // フローティングボタンを変更してサイドパネルを開けるようにする
+        button.innerHTML = '📋';
+        button.style.background = '#10b981';
+        button.title = 'クリックしてサイドパネルを開く';
+        
+        // 新しいクリックリスナーを追加
+        button.removeEventListener('click', originalClickHandler);
+        button.addEventListener('click', openSidePanelHandler);
+        
       } else {
         console.error('🔍 [Dify Extension] Failed to send content:', response?.error);
       }
     });
     
-    setTimeout(() => {
-      button.innerHTML = '💬';
-      button.style.background = '#4f46e5';
-    }, 1000);
+    // ボタンの状態はレスポンス後に変更されるため、ここでは変更しない
   }
   
   button.addEventListener('mousedown', (e) => {
@@ -234,8 +262,7 @@ function createFloatingButton() {
     const pressDuration = Date.now() - mouseDownTime;
     
     if (!isDragging && !isLongPress && deltaX < 5 && deltaY < 5 && pressDuration < 800) {
-      console.log('🔍 [Dify Extension] Short click detected, opening side panel');
-      chrome.runtime.sendMessage({ action: 'openSidePanel' });
+      originalClickHandler();
     }
     
     isDragging = false;
