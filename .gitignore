@@ -37,8 +37,11 @@ logs/
 # Development build files
 dist/
 build/
-temp/
 tmp/
+
+# Temporary files folder (except README.md)
+temp/*
+!temp/README.md
 
 # Environment files
 .env
